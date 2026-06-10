@@ -7,6 +7,9 @@ const usersRoutes = require("./routes/usersRoutes");
 const todosRoutes = require("./routes/todosRoutes");
 const postsRoutes = require("./routes/postsRoutes");
 const commentsRoutes = require("./routes/commentsRoutes");
+const albumsRoutes = require("./routes/albumsRoutes");
+const photosRoutes = require("./routes/photosRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 require("./db");
 
@@ -20,6 +23,9 @@ app.use("/users", usersRoutes);
 app.use("/todos", todosRoutes);
 app.use("/posts", postsRoutes);
 app.use("/comments", commentsRoutes);
+app.use("/albums", albumsRoutes);
+app.use("/photos", photosRoutes);
+app.use("/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.send("Server is running");

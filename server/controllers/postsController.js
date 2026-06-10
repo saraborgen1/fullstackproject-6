@@ -1,19 +1,26 @@
 const db = require("../db");
 
 const getPosts = (req, res) => {
-  const { userId } = req.query;
+  const { userId, search } = req.query;
 
   if (!userId) {
     return res.status(400).json({ message: "userId is required" });
   }
 
-  const sql = `
-    SELECT *
+  let sql = `
+    SELECT id, user_id, title, body
     FROM posts
     WHERE user_id = ?
   `;
 
-  db.query(sql, [userId], (err, results) => {
+  const values = [userId];
+
+  if (search) {
+    sql += " AND (title LIKE ? OR body LIKE ?)";
+    values.push(`%${search}%`, `%${search}%`);
+  }
+
+  db.query(sql, values, (err, results) => {
     if (err) return res.status(500).json({ message: "Server error" });
 
     res.json(results);

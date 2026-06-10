@@ -1,20 +1,44 @@
 const db = require("../db");
 
 const getComments = (req, res) => {
-  const { postId } = req.query;
+  const { postId, search } = req.query;
 
   if (!postId) {
-    return res.status(400).json({ message: "postId is required" });
+    return res.status(400).json({
+      message: "postId is required",
+    });
   }
 
-  const sql = `
-    SELECT *
+  let sql = `
+    SELECT id, post_id, user_id, name, email, body
     FROM comments
     WHERE post_id = ?
   `;
 
-  db.query(sql, [postId], (err, results) => {
-    if (err) return res.status(500).json({ message: "Server error" });
+  const values = [postId];
+
+  if (search) {
+    sql += `
+      AND (
+        body LIKE ?
+        OR name LIKE ?
+        OR email LIKE ?
+      )
+    `;
+
+    values.push(
+      `%${search}%`,
+      `%${search}%`,
+      `%${search}%`
+    );
+  }
+
+  db.query(sql, values, (err, results) => {
+    if (err) {
+      return res.status(500).json({
+        message: "Server error",
+      });
+    }
 
     res.json(results);
   });

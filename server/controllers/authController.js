@@ -10,7 +10,7 @@ const login = (req, res) => {
   }
 
   const sql = `
-    SELECT id, name, username, email, phone, website
+    SELECT id, name, username, email, phone, blocked, is_admin
     FROM users
     WHERE username = ? AND website = ?
   `;
@@ -20,6 +20,10 @@ const login = (req, res) => {
 
     if (results.length === 0) {
       return res.status(401).json({ message: "Invalid username or password" });
+    }
+
+    if (results[0].blocked) {
+      return res.status(403).json({ message: "User is blocked" });
     }
 
     res.json(results[0]);
@@ -60,7 +64,6 @@ const register = (req, res) => {
       username,
       email,
       phone,
-      website,
     });
   });
 };

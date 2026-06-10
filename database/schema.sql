@@ -45,3 +45,39 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+-- ==========================================הוספות לברכי
+ALTER TABLE users
+ADD COLUMN blocked BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE users
+ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS albums (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS photos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  album_id INT NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  url VARCHAR(500) NOT NULL,
+  thumbnail_url VARCHAR(500),
+  FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE
+);
+
+UPDATE users
+SET blocked = FALSE
+WHERE id > 0;
+
+UPDATE users
+SET is_admin = FALSE
+WHERE id > 0;
+
+UPDATE users
+SET is_admin = TRUE
+WHERE id = 1;
+

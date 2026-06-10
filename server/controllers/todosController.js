@@ -1,53 +1,65 @@
 const db = require("../db");
 
 const getTodos = (req, res) => {
-    const { userId } = req.query;
+  const { userId, completed, search } = req.query;
 
-    if (!userId) {
-        return res.status(400).json({
-            message: "userId is required",
-        });
-    }
+  if (!userId) {
+    return res.status(400).json({
+      message: "userId is required",
+    });
+  }
 
-    const sql = `
-    SELECT *
+  let sql = `
+    SELECT id, user_id, title, completed
     FROM todos
     WHERE user_id = ?
   `;
 
-    db.query(sql, [userId], (err, results) => {
-        if (err) {
-            return res.status(500).json({
-                message: "Server error",
-            });
-        }
+  const values = [userId];
 
-        res.json(results);
-    });
+  if (completed !== undefined) {
+    sql += " AND completed = ?";
+    values.push(completed === "true");
+  }
+
+  if (search) {
+    sql += " AND title LIKE ?";
+    values.push(`%${search}%`);
+  }
+
+  db.query(sql, values, (err, results) => {
+    if (err) {
+      return res.status(500).json({
+        message: "Server error",
+      });
+    }
+
+    res.json(results);
+  });
 };
 
 const createTodo = (req, res) => {
-    const { userId, title, completed } = req.body;
+  const { userId, title, completed } = req.body;
 
-    if (!userId || !title) {
-        return res.status(400).json({ message: "userId and title are required" });
-    }
+  if (!userId || !title) {
+    return res.status(400).json({ message: "userId and title are required" });
+  }
 
-    const sql = `
+  const sql = `
     INSERT INTO todos (user_id, title, completed)
     VALUES (?, ?, ?)
   `;
 
-    db.query(sql, [userId, title, completed ?? false], (err, result) => {
-        if (err) return res.status(500).json({ message: "Server error" });
+  db.query(sql, [userId, title, completed ?? false], (err, result) => {
+    if (err) return res.status(500).json({ message: "Server error" });
 
-        res.status(201).json({
-            id: result.insertId,
-            user_id: userId,
-            title,
-            completed: completed ?? false,
-        });
+    res.status(201).json({
+      id: result.insertId,
+      user_id: userId,
+      title,
+      completed: completed ?? false,
     });
+  });
 };
 
 const patchTodo = (req, res) => {
@@ -144,9 +156,9 @@ const updateTodo = (req, res) => {
 };
 
 module.exports = {
-    getTodos,
-    createTodo,
-    patchTodo,
-    deleteTodo,
-    updateTodo,
+  getTodos,
+  createTodo,
+  patchTodo,
+  deleteTodo,
+  updateTodo,
 };
