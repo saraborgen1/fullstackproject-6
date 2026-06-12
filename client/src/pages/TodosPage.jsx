@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { todosAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -6,45 +6,65 @@ import { useAuth } from '../context/AuthContext';
 export default function TodosPage() {
   const { username } = useParams();
   const { user, updateStatCount } = useAuth();
-  const [todos, setTodos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [allTodos, setAllTodos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [filter, setFilter] = useState('all'); // all, completed, pending
   const [search, setSearch] = useState('');
+  const loadedRef = useRef(false);
 
   useEffect(() => {
-    if (user) fetchTodos();
+    if (!user) return;
+    if (!loadedRef.current) {
+      fetchAllTodos();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, filter, search]);
+  }, [user]);
 
-  const fetchTodos = async () => {
-    setLoading(true);
+  const fetchAllTodos = async () => {
+    setInitialLoading(true);
     setError('');
     try {
-      const params = {};
-      if (filter === 'completed') params.completed = true;
-      if (filter === 'pending') params.completed = false;
-      if (search.trim()) params.search = search.trim();
-      const data = await todosAPI.getAll(user.id, params);
-      setTodos(data.sort((a, b) => a.id - b.id));
+      const data = await todosAPI.getAll(user.id, {});
+      setAllTodos(data.sort((a, b) => a.id - b.id));
+      loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load todos');
     } finally {
+      setInitialLoading(false);
       setLoading(false);
     }
   };
+
+  const displayedTodos = useMemo(() => {
+    let result = allTodos;
+
+    if (filter === 'completed') {
+      result = result.filter((t) => t.completed);
+    } else if (filter === 'pending') {
+      result = result.filter((t) => !t.completed);
+    }
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter((t) => t.title.toLowerCase().includes(q));
+    }
+
+    return result;
+  }, [allTodos, filter, search]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
     try {
-      await todosAPI.create({ userId: user.id, title: newTitle.trim(), completed: false });
+      const createdTodo = await todosAPI.create({ userId: user.id, title: newTitle.trim(), completed: false });
       setNewTitle('');
+      setAllTodos((prev) => [...prev, createdTodo].sort((a, b) => a.id - b.id));
       updateStatCount('todo', 1);
-      fetchTodos();
     } catch (err) {
       setError('Failed to create todo');
     }
@@ -52,13 +72,15 @@ export default function TodosPage() {
 
   const handleToggle = async (todo) => {
     try {
-      await todosAPI.update(todo.id, {
+      const updatedTodo = await todosAPI.update(todo.id, {
         userId: user.id,
         title: todo.title,
         completed: !todo.completed,
       });
+      setAllTodos((prev) =>
+        prev.map((t) => (t.id === todo.id ? { ...t, completed: !t.completed } : t))
+      );
       updateStatCount('todoCompleted', todo.completed ? -1 : 1);
-      fetchTodos();
     } catch (err) {
       setError('Failed to update todo');
     }
@@ -67,15 +89,17 @@ export default function TodosPage() {
   const handleUpdate = async (id) => {
     if (!editTitle.trim()) return;
     try {
-      const todo = todos.find((t) => t.id === id);
+      const todo = allTodos.find((t) => t.id === id);
       await todosAPI.update(id, {
         userId: user.id,
         title: editTitle.trim(),
         completed: todo.completed,
       });
+      setAllTodos((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, title: editTitle.trim() } : t))
+      );
       setEditingId(null);
       setEditTitle('');
-      fetchTodos();
     } catch (err) {
       setError('Failed to update todo');
     }
@@ -84,13 +108,13 @@ export default function TodosPage() {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this todo?')) return;
     try {
-      const todo = todos.find((t) => t.id === id);
+      const todo = allTodos.find((t) => t.id === id);
       await todosAPI.delete(id, user.id);
+      setAllTodos((prev) => prev.filter((t) => t.id !== id));
       updateStatCount('todo', -1);
       if (todo.completed) {
         updateStatCount('todoCompleted', -1);
       }
-      fetchTodos();
     } catch (err) {
       setError('Failed to delete todo');
     }
@@ -143,50 +167,52 @@ export default function TodosPage() {
 
       <div className="todo-list-scroll">
         {error && <div className="error-msg">{error}</div>}
-        {loading && <div className="loading">Loading...</div>}
+        {initialLoading && <div className="loading">Loading...</div>}
 
-        {!loading && todos.length === 0 && <p className="empty-msg">No todos found.</p>}
+        {!initialLoading && displayedTodos.length === 0 && <p className="empty-msg">No todos found.</p>}
 
-        <ul className="item-list">
-          {todos.map((todo) => (
-            <li key={todo.id} className={`item-card ${todo.completed ? 'completed' : ''}`}>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={todo.completed}
-                  onChange={() => handleToggle(todo)}
-                />
-              </label>
-              <div className="item-content">
-                {editingId === todo.id ? (
-                  <div className="edit-form">
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      autoFocus
-                    />
-                    <button className="btn-save" onClick={() => handleUpdate(todo.id)}>Save</button>
-                    <button className="btn-cancel" onClick={() => setEditingId(null)}>Cancel</button>
-                  </div>
-                ) : (
-                  <span
-                    className={`todo-title ${todo.completed ? 'line-through' : ''}`}
-                    onDoubleClick={() => startEdit(todo)}
-                  >
-                    {todo.title}
-                  </span>
-                )}
-              </div>
-              <div className="item-actions">
-                {editingId !== todo.id && (
-                  <button className="btn-edit" onClick={() => startEdit(todo)}>Edit</button>
-                )}
-                <button className="btn-delete" onClick={() => handleDelete(todo.id)}>Delete</button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {!initialLoading && (
+          <ul className="item-list">
+            {displayedTodos.map((todo) => (
+              <li key={todo.id} className={`item-card ${todo.completed ? 'completed' : ''}`}>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={todo.completed}
+                    onChange={() => handleToggle(todo)}
+                  />
+                </label>
+                <div className="item-content">
+                  {editingId === todo.id ? (
+                    <div className="edit-form">
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        autoFocus
+                      />
+                      <button className="btn-save" onClick={() => handleUpdate(todo.id)}>Save</button>
+                      <button className="btn-cancel" onClick={() => setEditingId(null)}>Cancel</button>
+                    </div>
+                  ) : (
+                    <span
+                      className={`todo-title ${todo.completed ? 'line-through' : ''}`}
+                      onDoubleClick={() => startEdit(todo)}
+                    >
+                      {todo.title}
+                    </span>
+                  )}
+                </div>
+                <div className="item-actions">
+                  {editingId !== todo.id && (
+                    <button className="btn-edit" onClick={() => startEdit(todo)}>Edit</button>
+                  )}
+                  <button className="btn-delete" onClick={() => handleDelete(todo.id)}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
