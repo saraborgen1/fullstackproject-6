@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { postsAPI, commentsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
+let cachedPosts = null;
+
 export default function PostsPage() {
   const { username } = useParams();
   const { user, updateStatCount } = useAuth();
@@ -29,6 +31,11 @@ export default function PostsPage() {
 
   useEffect(() => {
     if (!user) return;
+    if (cachedPosts) {
+      setAllPosts(cachedPosts);
+      setInitialLoading(false);
+      return;
+    }
     if (!loadedRef.current) {
       fetchAllPosts();
     }
@@ -40,7 +47,9 @@ export default function PostsPage() {
     setError('');
     try {
       const data = await postsAPI.getAllPosts({});
-      setAllPosts(data.sort((a, b) => a.id - b.id));
+      const sorted = data.sort((a, b) => a.id - b.id);
+      setAllPosts(sorted);
+      cachedPosts = sorted;
       loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load posts');
@@ -108,7 +117,11 @@ export default function PostsPage() {
       setShowAddModal(false);
       setNewTitle('');
       setNewBody('');
-      setAllPosts((prev) => [...prev, createdPost].sort((a, b) => a.id - b.id));
+      setAllPosts((prev) => {
+        const next = [...prev, createdPost].sort((a, b) => a.id - b.id);
+        cachedPosts = next;
+        return next;
+      });
       setSelectedPostId(createdPost.id);
       updateStatCount('post', 1);
     } catch {
@@ -128,9 +141,11 @@ export default function PostsPage() {
     if (!editTitle.trim() || !editBody.trim() || !selectedPost) return;
     try {
       await postsAPI.update(selectedPost.id, { userId: user.id, title: editTitle.trim(), body: editBody.trim() });
-      setAllPosts((prev) =>
-        prev.map((p) => (p.id === selectedPost.id ? { ...p, title: editTitle.trim(), body: editBody.trim() } : p))
-      );
+      setAllPosts((prev) => {
+        const next = prev.map((p) => (p.id === selectedPost.id ? { ...p, title: editTitle.trim(), body: editBody.trim() } : p));
+        cachedPosts = next;
+        return next;
+      });
       setIsEditing(false);
     } catch {
       setError('Failed to update post');
@@ -141,7 +156,11 @@ export default function PostsPage() {
     if (!selectedPost || !window.confirm('Delete this post?')) return;
     try {
       await postsAPI.delete(selectedPost.id, user.id);
-      setAllPosts((prev) => prev.filter((p) => p.id !== selectedPost.id));
+      setAllPosts((prev) => {
+        const next = prev.filter((p) => p.id !== selectedPost.id);
+        cachedPosts = next;
+        return next;
+      });
       setSelectedPostId(null);
       updateStatCount('post', -1);
     } catch {

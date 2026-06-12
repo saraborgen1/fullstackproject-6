@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { todosAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
+let cachedTodos = null;
+
 export default function TodosPage() {
   const { username } = useParams();
   const { user, updateStatCount } = useAuth();
@@ -19,6 +21,11 @@ export default function TodosPage() {
 
   useEffect(() => {
     if (!user) return;
+    if (cachedTodos) {
+      setAllTodos(cachedTodos);
+      setInitialLoading(false);
+      return;
+    }
     if (!loadedRef.current) {
       fetchAllTodos();
     }
@@ -30,7 +37,9 @@ export default function TodosPage() {
     setError('');
     try {
       const data = await todosAPI.getAll(user.id, {});
-      setAllTodos(data.sort((a, b) => a.id - b.id));
+      const sorted = data.sort((a, b) => a.id - b.id);
+      setAllTodos(sorted);
+      cachedTodos = sorted;
       loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load todos');
@@ -63,7 +72,11 @@ export default function TodosPage() {
     try {
       const createdTodo = await todosAPI.create({ userId: user.id, title: newTitle.trim(), completed: false });
       setNewTitle('');
-      setAllTodos((prev) => [...prev, createdTodo].sort((a, b) => a.id - b.id));
+      setAllTodos((prev) => {
+        const next = [...prev, createdTodo].sort((a, b) => a.id - b.id);
+        cachedTodos = next;
+        return next;
+      });
       updateStatCount('todo', 1);
     } catch (err) {
       setError('Failed to create todo');
@@ -77,9 +90,11 @@ export default function TodosPage() {
         title: todo.title,
         completed: !todo.completed,
       });
-      setAllTodos((prev) =>
-        prev.map((t) => (t.id === todo.id ? { ...t, completed: !t.completed } : t))
-      );
+      setAllTodos((prev) => {
+        const next = prev.map((t) => (t.id === todo.id ? { ...t, completed: !t.completed } : t));
+        cachedTodos = next;
+        return next;
+      });
       updateStatCount('todoCompleted', todo.completed ? -1 : 1);
     } catch (err) {
       setError('Failed to update todo');
@@ -95,9 +110,11 @@ export default function TodosPage() {
         title: editTitle.trim(),
         completed: todo.completed,
       });
-      setAllTodos((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, title: editTitle.trim() } : t))
-      );
+      setAllTodos((prev) => {
+        const next = prev.map((t) => (t.id === id ? { ...t, title: editTitle.trim() } : t));
+        cachedTodos = next;
+        return next;
+      });
       setEditingId(null);
       setEditTitle('');
     } catch (err) {
@@ -110,7 +127,11 @@ export default function TodosPage() {
     try {
       const todo = allTodos.find((t) => t.id === id);
       await todosAPI.delete(id, user.id);
-      setAllTodos((prev) => prev.filter((t) => t.id !== id));
+      setAllTodos((prev) => {
+        const next = prev.filter((t) => t.id !== id);
+        cachedTodos = next;
+        return next;
+      });
       updateStatCount('todo', -1);
       if (todo.completed) {
         updateStatCount('todoCompleted', -1);
