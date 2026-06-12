@@ -16,7 +16,7 @@ export default function TodosPage() {
   const [newTitle, setNewTitle] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
-  const [filter, setFilter] = useState('all'); // all, completed, pending
+  const [filter, setFilter] = useState('all'); 
   const [search, setSearch] = useState('');
   const loadedRef = useRef(false);
 

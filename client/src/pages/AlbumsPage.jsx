@@ -18,19 +18,15 @@ export default function AlbumsPage() {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [search, setSearch] = useState('');
-  // Photo new
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [newPhotoTitle, setNewPhotoTitle] = useState('');
   const loadedRef = useRef(false);
+  const [albumPhotos, setAlbumPhotos] = useState({});       
+  const [albumTotal, setAlbumTotal] = useState({});         
+  const [albumPage, setAlbumPage] = useState({});          
+  const [albumLoading, setAlbumLoading] = useState({});   
+  const [albumLoadingMore, setAlbumLoadingMore] = useState({});
 
-  // Server-side pagination state per album
-  const [albumPhotos, setAlbumPhotos] = useState({});       // { albumId: [photo, ...] }
-  const [albumTotal, setAlbumTotal] = useState({});          // { albumId: totalCount }
-  const [albumPage, setAlbumPage] = useState({});            // { albumId: currentPage (1-based) }
-  const [albumLoading, setAlbumLoading] = useState({});      // { albumId: bool }
-  const [albumLoadingMore, setAlbumLoadingMore] = useState({}); // { albumId: bool }
-
-  // Lightbox state
   const [lightbox, setLightbox] = useState({ open: false, photoIndex: 0 });
 
   useEffect(() => {
@@ -78,19 +74,16 @@ export default function AlbumsPage() {
     return allAlbums.find((a) => a.id === selectedAlbumId) || null;
   }, [allAlbums, selectedAlbumId]);
 
-  // Current loaded photos and totals for the selected album
   const currentPhotos = selectedAlbumId ? (albumPhotos[selectedAlbumId] || []) : [];
   const currentTotal = selectedAlbumId ? (albumTotal[selectedAlbumId] || 0) : 0;
   const currentPage = selectedAlbumId ? (albumPage[selectedAlbumId] || 1) : 1;
   const hasMore = currentPhotos.length < currentTotal;
   const isLoadingMore = selectedAlbumId ? !!albumLoadingMore[selectedAlbumId] : false;
 
-  // Fetch first page of photos for an album
   const handleSelectAlbum = useCallback(async (albumId) => {
     setEditingId(null);
     setSelectedAlbumId(albumId);
 
-    // If we already have photos loaded for this album, don't re-fetch
     if (albumPhotos[albumId]) return;
 
     setAlbumLoading((prev) => ({ ...prev, [albumId]: true }));
@@ -106,7 +99,6 @@ export default function AlbumsPage() {
     }
   }, [albumPhotos]);
 
-  // Fetch next page from server
   const handleLoadMore = useCallback(async () => {
     if (!selectedAlbumId || !hasMore || isLoadingMore) return;
     const nextPage = currentPage + 1;
@@ -126,13 +118,11 @@ export default function AlbumsPage() {
     }
   }, [selectedAlbumId, currentPage, hasMore, isLoadingMore]);
 
-  // Load all remaining photos from server
   const handleShowAll = useCallback(async () => {
     if (!selectedAlbumId || !hasMore || isLoadingMore) return;
 
     setAlbumLoadingMore((prev) => ({ ...prev, [selectedAlbumId]: true }));
     try {
-      // Fetch all remaining pages
       const total = albumTotal[selectedAlbumId];
       const allLoaded = albumPhotos[selectedAlbumId] || [];
       const nextPage = currentPage + 1;
@@ -157,7 +147,6 @@ export default function AlbumsPage() {
     }
   }, [selectedAlbumId, currentPage, hasMore, isLoadingMore, albumTotal, albumPhotos]);
 
-  // Lightbox navigation
   const openLightbox = useCallback((index) => {
     setLightbox({ open: true, photoIndex: index });
   }, []);
@@ -180,7 +169,6 @@ export default function AlbumsPage() {
     }));
   }, []);
 
-  // Keyboard navigation for lightbox
   useEffect(() => {
     if (!lightbox.open) return;
     const handleKey = (e) => {
@@ -204,7 +192,6 @@ export default function AlbumsPage() {
         return next;
       });
       updateStatCount('album', 1);
-      // Auto-select the newly created album
       setSelectedAlbumId(createdAlbum.id);
     } catch {
       setError('Failed to create album');
@@ -278,7 +265,6 @@ export default function AlbumsPage() {
     }
   };
 
-  // Calculate progress percentage
   const progressPercent = currentTotal > 0 ? Math.min(100, Math.round((currentPhotos.length / currentTotal) * 100)) : 0;
 
   return (
@@ -506,7 +492,7 @@ export default function AlbumsPage() {
         <div className="lightbox-overlay" onClick={closeLightbox}>
           <div className="lightbox-container" onClick={(e) => e.stopPropagation()}>
             <button className="lightbox-close" onClick={closeLightbox}>✕</button>
-            
+
             <div className="lightbox-content">
               <button
                 className="lightbox-nav lightbox-prev"

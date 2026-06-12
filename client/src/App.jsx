@@ -65,19 +65,8 @@ function AppRoutes() {
         <Route path="posts" element={<PostsPage />} />
         <Route path="albums" element={<AlbumsPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        /*שרה */
         <Route path="admin" element={<AdminPage />} />
       </Route>
-
-      {/* Admin route */}
-      {/* <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <AdminPage />
-          </ProtectedRoute>
-        }
-      /> */}
 
       {/* Default redirect */}
       <Route

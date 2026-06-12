@@ -20,11 +20,9 @@ export default function PostsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
-  // Editing post in right panel
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
-  // Comment editing
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentBody, setEditCommentBody] = useState('');
   const [newCommentText, setNewCommentText] = useState('');
@@ -43,7 +41,6 @@ export default function PostsPage() {
 
     fetchAllPosts();
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const fetchAllPosts = async () => {
