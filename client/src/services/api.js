@@ -89,6 +89,10 @@ export const photosAPI = {
     const query = { albumId, ...params };
     return api.get('/photos', { params: query }).then((r) => r.data);
   },
+  getPaginated: (albumId, page = 1, limit = 6) => {
+    const query = { albumId, page, limit };
+    return api.get('/photos', { params: query }).then((r) => r.data);
+  },
   create: (data) => api.post('/photos', data).then((r) => r.data),
   update: (id, data) => api.put(`/photos/${id}`, data).then((r) => r.data),
   patch: (id, data) => api.patch(`/photos/${id}`, data).then((r) => r.data),

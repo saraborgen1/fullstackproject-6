@@ -1,7 +1,7 @@
 const db = require("../db");
 
 const getPhotos = (req, res) => {
-    const { albumId, search } = req.query;
+    const { albumId, search, page, limit } = req.query;
 
     if (!albumId) {
         return res.status(400).json({
@@ -9,6 +9,7 @@ const getPhotos = (req, res) => {
         });
     }
 
+    let countSql = `SELECT COUNT(*) AS total FROM photos WHERE album_id = ?`;
     let sql = `
     SELECT id, album_id, title, url, thumbnail_url
     FROM photos
@@ -16,20 +17,43 @@ const getPhotos = (req, res) => {
   `;
 
     const values = [albumId];
+    const countValues = [albumId];
 
     if (search) {
         sql += " AND title LIKE ?";
+        countSql += " AND title LIKE ?";
         values.push(`%${search}%`);
+        countValues.push(`%${search}%`);
     }
 
-    db.query(sql, values, (err, results) => {
-        if (err) {
-            return res.status(500).json({
-                message: "Server error",
-            });
+    // Get total count first
+    db.query(countSql, countValues, (countErr, countResults) => {
+        if (countErr) {
+            return res.status(500).json({ message: "Server error" });
         }
 
-        res.json(results);
+        const total = countResults[0].total;
+
+        // Apply pagination if page and limit are provided
+        if (page !== undefined && limit !== undefined) {
+            const pageNum = Math.max(1, parseInt(page, 10) || 1);
+            const limitNum = Math.max(1, parseInt(limit, 10) || 6);
+            const offset = (pageNum - 1) * limitNum;
+            sql += ` ORDER BY id ASC LIMIT ? OFFSET ?`;
+            values.push(limitNum, offset);
+        } else {
+            sql += ` ORDER BY id ASC`;
+        }
+
+        db.query(sql, values, (err, results) => {
+            if (err) {
+                return res.status(500).json({
+                    message: "Server error",
+                });
+            }
+
+            res.json({ photos: results, total });
+        });
     });
 };
 
