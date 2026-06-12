@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { adminAPI, usersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-const cachedAdminDataByUser = {};
+
+window.appCache = window.appCache || {};
+window.appCache.admin = window.appCache.admin || {};
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -18,7 +20,7 @@ export default function AdminPage() {
       return;
     }
 
-    const adminCache = cachedAdminDataByUser[user.id];
+    const adminCache = window.appCache.admin[user.id];
 
     if (adminCache) {
       setStats(adminCache.stats);
@@ -40,7 +42,7 @@ export default function AdminPage() {
       ]);
       setStats(statsData);
       setUsers(usersData);
-      cachedAdminDataByUser[user.id] = {
+      window.appCache.admin[user.id] = {
         stats: statsData,
         users: usersData,
       };
@@ -60,7 +62,7 @@ export default function AdminPage() {
           u.id === targetUserId ? { ...u, is_admin: !currentAdminStatus } : u
         );
 
-        cachedAdminDataByUser[user.id] = {
+        window.appCache.admin[user.id] = {
           stats: {
             ...stats,
             admins: stats.admins + (!currentAdminStatus ? 1 : -1),
@@ -92,7 +94,7 @@ export default function AdminPage() {
           u.id === targetUserId ? { ...u, blocked: !currentBlocked } : u
         );
 
-        cachedAdminDataByUser[user.id] = {
+        window.appCache.admin[user.id] = {
           stats: {
             ...stats,
             blockedUsers: stats.blockedUsers + (!currentBlocked ? 1 : -1),

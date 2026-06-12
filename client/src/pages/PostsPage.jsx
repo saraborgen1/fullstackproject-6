@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { postsAPI, commentsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const cachedPostsByUser = {};
+window.appCache = window.appCache || {};
+window.appCache.posts = window.appCache.posts || {};
 
 export default function PostsPage() {
   const { username } = useParams();
@@ -32,7 +33,7 @@ export default function PostsPage() {
   useEffect(() => {
     if (!user) return;
 
-    const userCache = cachedPostsByUser[user.id];
+    const userCache = window.appCache.posts[user.id];
 
     if (userCache) {
       setAllPosts(userCache);
@@ -52,7 +53,7 @@ export default function PostsPage() {
       const data = await postsAPI.getAllPosts({});
       const sorted = data.sort((a, b) => a.id - b.id);
       setAllPosts(sorted);
-      cachedPostsByUser[user.id] = sorted;
+      window.appCache.posts[user.id] = sorted;
       loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load posts');
@@ -122,7 +123,7 @@ export default function PostsPage() {
       setNewBody('');
       setAllPosts((prev) => {
         const next = [...prev, createdPost].sort((a, b) => a.id - b.id);
-        cachedPostsByUser[user.id] = next;
+        window.appCache.posts[user.id] = next;
         return next;
       });
       setSelectedPostId(createdPost.id);
@@ -146,7 +147,7 @@ export default function PostsPage() {
       await postsAPI.update(selectedPost.id, { userId: user.id, title: editTitle.trim(), body: editBody.trim() });
       setAllPosts((prev) => {
         const next = prev.map((p) => (p.id === selectedPost.id ? { ...p, title: editTitle.trim(), body: editBody.trim() } : p));
-        cachedPostsByUser[user.id] = next;
+        window.appCache.posts[user.id] = next;
         return next;
       });
       setIsEditing(false);
@@ -161,7 +162,7 @@ export default function PostsPage() {
       await postsAPI.delete(selectedPost.id, user.id);
       setAllPosts((prev) => {
         const next = prev.filter((p) => p.id !== selectedPost.id);
-        cachedPostsByUser[user.id] = next;
+        window.appCache.posts[user.id] = next;
         return next;
       });
       setSelectedPostId(null);
