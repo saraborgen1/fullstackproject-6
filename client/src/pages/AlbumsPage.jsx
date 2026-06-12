@@ -11,7 +11,7 @@ export default function AlbumsPage() {
   const [allAlbums, setAllAlbums] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedAlbum, setExpandedAlbum] = useState(null);
+  const [selectedAlbumId, setSelectedAlbumId] = useState(null);
   const [photos, setPhotos] = useState({});
   const [photosLoading, setPhotosLoading] = useState({});
   const [newTitle, setNewTitle] = useState('');
@@ -61,12 +61,15 @@ export default function AlbumsPage() {
     return result;
   }, [allAlbums, search]);
 
-  const togglePhotos = async (albumId) => {
-    if (expandedAlbum === albumId) {
-      setExpandedAlbum(null);
-      return;
-    }
-    setExpandedAlbum(albumId);
+  const selectedAlbum = useMemo(() => {
+    if (!selectedAlbumId) return null;
+    return allAlbums.find((a) => a.id === selectedAlbumId) || null;
+  }, [allAlbums, selectedAlbumId]);
+
+  const handleSelectAlbum = async (albumId) => {
+    setEditingId(null);
+    setSelectedAlbumId(albumId);
+    // Load photos for this album
     if (!photos[albumId]) {
       setPhotosLoading((prev) => ({ ...prev, [albumId]: true }));
       try {
@@ -92,6 +95,8 @@ export default function AlbumsPage() {
         return next;
       });
       updateStatCount('album', 1);
+      // Auto-select the newly created album
+      setSelectedAlbumId(createdAlbum.id);
     } catch {
       setError('Failed to create album');
     }
@@ -116,7 +121,7 @@ export default function AlbumsPage() {
     if (!window.confirm('Delete this album?')) return;
     try {
       await albumsAPI.delete(id, user.id);
-      if (expandedAlbum === id) setExpandedAlbum(null);
+      if (selectedAlbumId === id) setSelectedAlbumId(null);
       setAllAlbums((prev) => {
         const next = prev.filter((a) => a.id !== id);
         cachedAlbums = next;
@@ -195,52 +200,88 @@ export default function AlbumsPage() {
 
       {error && <div className="error-msg">{error}</div>}
       {initialLoading && <div className="loading">Loading...</div>}
-      {!initialLoading && displayedAlbums.length === 0 && <p className="empty-msg">No albums found.</p>}
 
       {!initialLoading && (
-        <ul className="item-list">
-          {displayedAlbums.map((album) => (
-            <li key={album.id} className="item-card album-card">
-              {editingId === album.id ? (
-                <div className="edit-form">
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    autoFocus
-                  />
-                  <button className="btn-save" onClick={() => handleUpdate(album.id)}>Save</button>
-                  <button className="btn-cancel" onClick={() => setEditingId(null)}>Cancel</button>
-                </div>
-              ) : (
-                <>
-                  <div className="album-content">
-                    <h3>{album.title}</h3>
-                  </div>
-                  <div className="item-actions">
-                    <button className="btn-edit" onClick={() => { setEditingId(album.id); setEditTitle(album.title); }}>Edit</button>
-                    <button className="btn-delete" onClick={() => handleDelete(album.id)}>Delete</button>
-                    <button className="btn-secondary" onClick={() => togglePhotos(album.id)}>
-                      {expandedAlbum === album.id ? 'Hide Photos' : 'Photos'}
-                    </button>
-                  </div>
-                </>
-              )}
+        <div className="albums-layout">
+          {/* Left sidebar - album list */}
+          <div className="albums-sidebar">
+            {displayedAlbums.length === 0 && <p className="empty-msg">No albums found.</p>}
+            {displayedAlbums.map((album) => (
+              <div
+                key={album.id}
+                className={`album-list-item ${selectedAlbumId === album.id ? 'selected' : ''}`}
+                onClick={() => handleSelectAlbum(album.id)}
+              >
+                <span className="album-list-id">#{album.id}</span>
+                <span className="album-list-title">{album.title}</span>
+              </div>
+            ))}
+          </div>
 
-              {expandedAlbum === album.id && (
+          {/* Right panel - album details */}
+          <div className="albums-main">
+            {!selectedAlbum && (
+              <div className="no-album-selected">
+                Select an album from the list to view its content
+              </div>
+            )}
+
+            {selectedAlbum && (
+              <div className="album-detail-card">
+                {editingId === selectedAlbum.id ? (
+                  <div className="album-edit-section">
+                    <h2>Edit Album</h2>
+                    <div className="edit-form">
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        autoFocus
+                      />
+                      <div className="edit-actions">
+                        <button className="btn-save" onClick={() => handleUpdate(selectedAlbum.id)}>Save</button>
+                        <button className="btn-cancel" onClick={() => setEditingId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="album-detail-header">
+                      <h2>{selectedAlbum.title}</h2>
+                      <span className="album-detail-id">Album #{selectedAlbum.id}</span>
+                    </div>
+                    <div className="post-detail-actions">
+                      <button
+                        className="btn-edit"
+                        onClick={() => { setEditingId(selectedAlbum.id); setEditTitle(selectedAlbum.title); }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn-delete"
+                        onClick={() => handleDelete(selectedAlbum.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* Photos section */}
                 <div className="photos-section">
-                  {photosLoading[album.id] && <div className="loading">Loading photos...</div>}
-                  {photos[album.id] && (
+                  {photosLoading[selectedAlbum.id] && <div className="loading">Loading photos...</div>}
+                  {photos[selectedAlbum.id] && (
                     <>
-                      {photos[album.id].length === 0 && <p>No photos yet.</p>}
+                      <h3>Photos ({photos[selectedAlbum.id].length})</h3>
+                      {photos[selectedAlbum.id].length === 0 && <p className="empty-msg">No photos yet.</p>}
                       <div className="photo-grid">
-                        {photos[album.id].map((photo) => (
+                        {photos[selectedAlbum.id].map((photo) => (
                           <div key={photo.id} className="photo-card">
                             <img src={photo.thumbnail_url || photo.url} alt={photo.title} />
                             <p>{photo.title}</p>
                             <button
                               className="btn-delete small"
-                              onClick={() => handleDeletePhoto(photo.id, album.id)}
+                              onClick={() => handleDeletePhoto(photo.id, selectedAlbum.id)}
                             >
                               Delete
                             </button>
@@ -260,17 +301,17 @@ export default function AlbumsPage() {
                           onChange={(e) => setNewPhotoUrl(e.target.value)}
                           placeholder="Photo URL..."
                         />
-                        <button className="btn-primary" onClick={() => handleAddPhoto(album.id)}>
+                        <button className="btn-primary" onClick={() => handleAddPhoto(selectedAlbum.id)}>
                           Add Photo
                         </button>
                       </div>
                     </>
                   )}
                 </div>
-              )}
-            </li>
-          ))}
-        </ul>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
