@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { adminAPI, usersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+let cachedAdminData = null;
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -16,8 +17,15 @@ export default function AdminPage() {
       navigate('/login');
       return;
     }
+
+    if (cachedAdminData) {
+      setStats(cachedAdminData.stats);
+      setUsers(cachedAdminData.users);
+      setLoading(false);
+      return;
+    }
+
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchData = async () => {
@@ -30,6 +38,10 @@ export default function AdminPage() {
       ]);
       setStats(statsData);
       setUsers(usersData);
+      cachedAdminData = {
+        stats: statsData,
+        users: usersData,
+      };
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load admin data');
     } finally {
@@ -41,7 +53,26 @@ export default function AdminPage() {
     if (!window.confirm('Change admin status for this user?')) return;
     try {
       await adminAPI.toggleAdmin(targetUserId, user.id, !currentAdminStatus);
-      fetchData();
+      setUsers((prev) => {
+        const next = prev.map((u) =>
+          u.id === targetUserId ? { ...u, is_admin: !currentAdminStatus } : u
+        );
+
+        cachedAdminData = {
+          stats: {
+            ...stats,
+            admins: stats.admins + (!currentAdminStatus ? 1 : -1),
+          },
+          users: next,
+        };
+
+        return next;
+      });
+
+      setStats((prev) => ({
+        ...prev,
+        admins: prev.admins + (!currentAdminStatus ? 1 : -1),
+      }));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update admin status');
     }
@@ -54,7 +85,26 @@ export default function AdminPage() {
       if (targetUserId === user.id) {
         alert('You cannot block yourself from admin view.');
       }
-      fetchData();
+      setUsers((prev) => {
+        const next = prev.map((u) =>
+          u.id === targetUserId ? { ...u, blocked: !currentBlocked } : u
+        );
+
+        cachedAdminData = {
+          stats: {
+            ...stats,
+            blockedUsers: stats.blockedUsers + (!currentBlocked ? 1 : -1),
+          },
+          users: next,
+        };
+
+        return next;
+      });
+
+      setStats((prev) => ({
+        ...prev,
+        blockedUsers: prev.blockedUsers + (!currentBlocked ? 1 : -1),
+      }));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update block status');
     }

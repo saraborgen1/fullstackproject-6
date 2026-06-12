@@ -36,7 +36,12 @@ export default function MainLayout() {
             <>
               <Link to={`/users/${username}/profile`} className="nav-btn">Profile</Link>
               {user?.is_admin ? (
-                <Link to="/admin" className="nav-btn admin-btn">Management</Link>
+                <Link
+                  to={`/users/${username}/admin`}
+                  className="nav-btn admin-btn"
+                >
+                  Management
+                </Link>
               ) : null}
             </>
           )}
