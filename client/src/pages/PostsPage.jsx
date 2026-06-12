@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function PostsPage() {
   const { username } = useParams();
-  const { user } = useAuth();
+  const { user, updateStatCount } = useAuth();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -69,6 +69,7 @@ export default function PostsPage() {
       await postsAPI.create({ userId: user.id, title: newTitle.trim(), body: newBody.trim() });
       setNewTitle('');
       setNewBody('');
+      updateStatCount('post', 1);
       fetchPosts();
     } catch {
       setError('Failed to create post');
@@ -97,6 +98,7 @@ export default function PostsPage() {
     try {
       await postsAPI.delete(id, user.id);
       if (expandedPost === id) setExpandedPost(null);
+      updateStatCount('post', -1);
       fetchPosts();
     } catch {
       setError('Failed to delete post');

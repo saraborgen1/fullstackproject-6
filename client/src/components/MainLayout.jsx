@@ -21,7 +21,7 @@ export default function MainLayout() {
         <div className="header-left">
           <h2>
             <Link to={`/users/${username}/dashboard`} className="brand-link">
-              JSONPlaceholder Client
+              DashBoard
             </Link>
           </h2>
           <span className="user-greeting">
@@ -35,9 +35,9 @@ export default function MainLayout() {
           {isOwnProfile && (
             <>
               <Link to={`/users/${username}/profile`} className="nav-btn">Profile</Link>
-              {user?.is_admin && (
-                <Link to="/admin" className="nav-btn admin-btn">Admin</Link>
-              )}
+              {user?.is_admin ? (
+                <Link to="/admin" className="nav-btn admin-btn">Management</Link>
+              ) : null}
             </>
           )}
         </nav>
@@ -61,13 +61,10 @@ export default function MainLayout() {
             <h2>My Info</h2>
             <table className="info-table">
               <tbody>
-                <tr><td><strong>ID</strong></td><td>{user.id}</td></tr>
                 <tr><td><strong>Name</strong></td><td>{user.name}</td></tr>
                 <tr><td><strong>Username</strong></td><td>{user.username}</td></tr>
                 <tr><td><strong>Email</strong></td><td>{user.email}</td></tr>
-                <tr><td><strong>Phone</strong></td><td>{user.phone}</td></tr>
-                <tr><td><strong>Admin</strong></td><td>{user.is_admin ? 'Yes' : 'No'}</td></tr>
-                <tr><td><strong>Blocked</strong></td><td>{user.blocked ? 'Yes' : 'No'}</td></tr>
+                <tr><td><strong>Phone</strong></td><td>{user.phone?.split(' x')[0]}</td></tr>
               </tbody>
             </table>
             <button className="btn-primary" onClick={() => setShowInfo(false)}>

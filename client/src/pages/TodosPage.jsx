@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function TodosPage() {
   const { username } = useParams();
-  const { user } = useAuth();
+  const { user, updateStatCount } = useAuth();
   const [todos, setTodos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -43,6 +43,7 @@ export default function TodosPage() {
     try {
       await todosAPI.create({ userId: user.id, title: newTitle.trim(), completed: false });
       setNewTitle('');
+      updateStatCount('todo', 1);
       fetchTodos();
     } catch (err) {
       setError('Failed to create todo');
@@ -56,6 +57,7 @@ export default function TodosPage() {
         title: todo.title,
         completed: !todo.completed,
       });
+      updateStatCount('todoCompleted', todo.completed ? -1 : 1);
       fetchTodos();
     } catch (err) {
       setError('Failed to update todo');
@@ -82,7 +84,12 @@ export default function TodosPage() {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this todo?')) return;
     try {
+      const todo = todos.find((t) => t.id === id);
       await todosAPI.delete(id, user.id);
+      updateStatCount('todo', -1);
+      if (todo.completed) {
+        updateStatCount('todoCompleted', -1);
+      }
       fetchTodos();
     } catch (err) {
       setError('Failed to delete todo');
@@ -134,51 +141,53 @@ export default function TodosPage() {
         </label>
       </div>
 
-      {error && <div className="error-msg">{error}</div>}
-      {loading && <div className="loading">Loading...</div>}
+      <div className="todo-list-scroll">
+        {error && <div className="error-msg">{error}</div>}
+        {loading && <div className="loading">Loading...</div>}
 
-      {!loading && todos.length === 0 && <p className="empty-msg">No todos found.</p>}
+        {!loading && todos.length === 0 && <p className="empty-msg">No todos found.</p>}
 
-      <ul className="item-list">
-        {todos.map((todo) => (
-          <li key={todo.id} className={`item-card ${todo.completed ? 'completed' : ''}`}>
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={todo.completed}
-                onChange={() => handleToggle(todo)}
-              />
-            </label>
-            <div className="item-content">
-              {editingId === todo.id ? (
-                <div className="edit-form">
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    autoFocus
-                  />
-                  <button className="btn-save" onClick={() => handleUpdate(todo.id)}>Save</button>
-                  <button className="btn-cancel" onClick={() => setEditingId(null)}>Cancel</button>
-                </div>
-              ) : (
-                <span
-                  className={`todo-title ${todo.completed ? 'line-through' : ''}`}
-                  onDoubleClick={() => startEdit(todo)}
-                >
-                  {todo.title}
-                </span>
-              )}
-            </div>
-            <div className="item-actions">
-              {editingId !== todo.id && (
-                <button className="btn-edit" onClick={() => startEdit(todo)}>Edit</button>
-              )}
-              <button className="btn-delete" onClick={() => handleDelete(todo.id)}>Delete</button>
-            </div>
-          </li>
-        ))}
-      </ul>
+        <ul className="item-list">
+          {todos.map((todo) => (
+            <li key={todo.id} className={`item-card ${todo.completed ? 'completed' : ''}`}>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={todo.completed}
+                  onChange={() => handleToggle(todo)}
+                />
+              </label>
+              <div className="item-content">
+                {editingId === todo.id ? (
+                  <div className="edit-form">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      autoFocus
+                    />
+                    <button className="btn-save" onClick={() => handleUpdate(todo.id)}>Save</button>
+                    <button className="btn-cancel" onClick={() => setEditingId(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <span
+                    className={`todo-title ${todo.completed ? 'line-through' : ''}`}
+                    onDoubleClick={() => startEdit(todo)}
+                  >
+                    {todo.title}
+                  </span>
+                )}
+              </div>
+              <div className="item-actions">
+                {editingId !== todo.id && (
+                  <button className="btn-edit" onClick={() => startEdit(todo)}>Edit</button>
+                )}
+                <button className="btn-delete" onClick={() => handleDelete(todo.id)}>Delete</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

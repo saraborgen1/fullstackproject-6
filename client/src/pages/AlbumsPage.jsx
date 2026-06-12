@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function AlbumsPage() {
   const { username } = useParams();
-  const { user } = useAuth();
+  const { user, updateStatCount } = useAuth();
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,6 +65,7 @@ export default function AlbumsPage() {
     try {
       await albumsAPI.create({ userId: user.id, title: newTitle.trim() });
       setNewTitle('');
+      updateStatCount('album', 1);
       fetchAlbums();
     } catch {
       setError('Failed to create album');
@@ -87,6 +88,7 @@ export default function AlbumsPage() {
     try {
       await albumsAPI.delete(id, user.id);
       if (expandedAlbum === id) setExpandedAlbum(null);
+      updateStatCount('album', -1);
       fetchAlbums();
     } catch {
       setError('Failed to delete album');

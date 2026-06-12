@@ -5,6 +5,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('authUser');
@@ -25,6 +26,7 @@ export function AuthProvider({ children }) {
 
   const logoutUser = () => {
     setUser(null);
+    setDashboardStats(null);
     localStorage.removeItem('authUser');
   };
 
@@ -34,8 +36,29 @@ export function AuthProvider({ children }) {
     localStorage.setItem('authUser', JSON.stringify(updated));
   };
 
+  const updateDashboardStats = (stats) => {
+    setDashboardStats(stats);
+  };
+
+  const updateStatCount = (type, delta) => {
+    setDashboardStats((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev };
+      if (type === 'todo') {
+        updated.todoCount = Math.max(0, updated.todoCount + delta);
+      } else if (type === 'todoCompleted') {
+        updated.completedTodoCount = Math.max(0, updated.completedTodoCount + delta);
+      } else if (type === 'post') {
+        updated.postCount = Math.max(0, updated.postCount + delta);
+      } else if (type === 'album') {
+        updated.albumCount = Math.max(0, updated.albumCount + delta);
+      }
+      return updated;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, loginUser, logoutUser, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, loginUser, logoutUser, updateUser, dashboardStats, updateDashboardStats, updateStatCount }}>
       {children}
     </AuthContext.Provider>
   );

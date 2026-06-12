@@ -185,47 +185,29 @@ const getUserDashboard = (req, res) => {
   const { id } = req.params;
 
   const userSql = `
-    SELECT id, name, username, email, phone, blocked, is_admin
+    SELECT id, name, username
     FROM users
     WHERE id = ?
   `;
 
-  const todosSql = `
-    SELECT id, user_id, title, completed
+  const todoCountSql = `
+    SELECT 
+      COUNT(*) AS total,
+      SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) AS completed
     FROM todos
     WHERE user_id = ?
   `;
 
-  const postsSql = `
-    SELECT 
-      p.id AS post_id,
-      p.user_id,
-      p.title AS post_title,
-      p.body AS post_body,
-      c.id AS comment_id,
-      c.name AS comment_name,
-      c.email AS comment_email,
-      c.body AS comment_body,
-      c.user_id AS comment_user_id
-    FROM posts p
-    LEFT JOIN comments c ON p.id = c.post_id
-    WHERE p.user_id = ?
-    ORDER BY p.id, c.id
+  const postCountSql = `
+    SELECT COUNT(*) AS total
+    FROM posts
+    WHERE user_id = ?
   `;
 
-  const albumsSql = `
-    SELECT
-      a.id AS album_id,
-      a.user_id,
-      a.title AS album_title,
-      ph.id AS photo_id,
-      ph.title AS photo_title,
-      ph.url,
-      ph.thumbnail_url
-    FROM albums a
-    LEFT JOIN photos ph ON a.id = ph.album_id
-    WHERE a.user_id = ?
-    ORDER BY a.id, ph.id
+  const albumCountSql = `
+    SELECT COUNT(*) AS total
+    FROM albums
+    WHERE user_id = ?
   `;
 
   db.query(userSql, [id], (err, userResults) => {
@@ -235,68 +217,21 @@ const getUserDashboard = (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    db.query(todosSql, [id], (err, todosResults) => {
+    db.query(todoCountSql, [id], (err, todoResults) => {
       if (err) return res.status(500).json({ message: "Server error" });
 
-      db.query(postsSql, [id], (err, postsRows) => {
+      db.query(postCountSql, [id], (err, postResults) => {
         if (err) return res.status(500).json({ message: "Server error" });
 
-        db.query(albumsSql, [id], (err, albumsRows) => {
+        db.query(albumCountSql, [id], (err, albumResults) => {
           if (err) return res.status(500).json({ message: "Server error" });
-
-          const postsMap = {};
-
-          postsRows.forEach((row) => {
-            if (!postsMap[row.post_id]) {
-              postsMap[row.post_id] = {
-                id: row.post_id,
-                user_id: row.user_id,
-                title: row.post_title,
-                body: row.post_body,
-                comments: [],
-              };
-            }
-
-            if (row.comment_id) {
-              postsMap[row.post_id].comments.push({
-                id: row.comment_id,
-                post_id: row.post_id,
-                user_id: row.comment_user_id,
-                name: row.comment_name,
-                email: row.comment_email,
-                body: row.comment_body,
-              });
-            }
-          });
-
-          const albumsMap = {};
-
-          albumsRows.forEach((row) => {
-            if (!albumsMap[row.album_id]) {
-              albumsMap[row.album_id] = {
-                id: row.album_id,
-                user_id: row.user_id,
-                title: row.album_title,
-                photos: [],
-              };
-            }
-
-            if (row.photo_id) {
-              albumsMap[row.album_id].photos.push({
-                id: row.photo_id,
-                album_id: row.album_id,
-                title: row.photo_title,
-                url: row.url,
-                thumbnail_url: row.thumbnail_url,
-              });
-            }
-          });
 
           res.json({
             user: userResults[0],
-            todos: todosResults,
-            posts: Object.values(postsMap),
-            albums: Object.values(albumsMap),
+            todoCount: todoResults[0].total,
+            completedTodoCount: todoResults[0].completed,
+            postCount: postResults[0].total,
+            albumCount: albumResults[0].total,
           });
         });
       });

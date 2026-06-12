@@ -5,14 +5,16 @@ import { useAuth } from '../context/AuthContext';
 
 export default function DashboardPage() {
   const { username } = useParams();
-  const { user } = useAuth();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, dashboardStats, updateDashboardStats } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!user) return;
-    fetchDashboard();
+
+    if (!dashboardStats) {
+      fetchDashboard();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -21,7 +23,7 @@ export default function DashboardPage() {
     setError('');
     try {
       const result = await usersAPI.getDashboard(user.id);
-      setData(result);
+      updateDashboardStats(result);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load dashboard');
     } finally {
@@ -31,9 +33,9 @@ export default function DashboardPage() {
 
   if (loading) return <div className="loading">Loading dashboard...</div>;
   if (error) return <div className="error-msg">{error}</div>;
-  if (!data) return null;
+  if (!dashboardStats) return null;
 
-  const { user: profile, todos, posts, albums } = data;
+  const { user: profile, todoCount, completedTodoCount, postCount, albumCount } = dashboardStats;
 
   return (
     <div className="dashboard">
@@ -41,22 +43,22 @@ export default function DashboardPage() {
       <div className="dashboard-stats">
         <div className="stat-card">
           <h3>Todos</h3>
-          <p className="stat-number">{todos.length}</p>
-          <p>Completed: {todos.filter((t) => t.completed).length}</p>
+          <p className="stat-number">{todoCount}</p>
+          <p>Completed: {completedTodoCount}</p>
           <Link to={`/users/${username}/todos`} className="btn-secondary">
             View Todos
           </Link>
         </div>
         <div className="stat-card">
           <h3>Posts</h3>
-          <p className="stat-number">{posts.length}</p>
+          <p className="stat-number">{postCount}</p>
           <Link to={`/users/${username}/posts`} className="btn-secondary">
             View Posts
           </Link>
         </div>
         <div className="stat-card">
           <h3>Albums</h3>
-          <p className="stat-number">{albums.length}</p>
+          <p className="stat-number">{albumCount}</p>
           <Link to={`/users/${username}/albums`} className="btn-secondary">
             View Albums
           </Link>
