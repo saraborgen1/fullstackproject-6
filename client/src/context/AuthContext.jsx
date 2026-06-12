@@ -27,6 +27,14 @@ export function AuthProvider({ children }) {
   const logoutUser = () => {
     setUser(null);
     setDashboardStats(null);
+
+    window.appCache = {
+      todos: {},
+      posts: {},
+      albums: {},
+      admin: {},
+    };
+
     localStorage.removeItem('authUser');
   };
 

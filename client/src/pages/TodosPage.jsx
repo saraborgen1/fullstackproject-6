@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { todosAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const cachedTodosByUser = {};
+window.appCache = window.appCache || {};
+window.appCache.todos = window.appCache.todos || {};
 
 export default function TodosPage() {
   const { username } = useParams();
@@ -22,7 +23,7 @@ export default function TodosPage() {
   useEffect(() => {
     if (!user) return;
 
-    const userCache = cachedTodosByUser[user.id];
+    const userCache = window.appCache.todos[user.id];
 
     if (userCache) {
       setAllTodos(userCache);
@@ -41,7 +42,7 @@ export default function TodosPage() {
       const data = await todosAPI.getAll(user.id, {});
       const sorted = data.sort((a, b) => a.id - b.id);
       setAllTodos(sorted);
-      cachedTodosByUser[user.id] = sorted; 
+      window.appCache.todos[user.id] = sorted;
       loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load todos');
@@ -76,7 +77,7 @@ export default function TodosPage() {
       setNewTitle('');
       setAllTodos((prev) => {
         const next = [...prev, createdTodo].sort((a, b) => a.id - b.id);
-        cachedTodosByUser[user.id] = next;
+        window.appCache.todos[user.id] = next;
         return next;
       });
       updateStatCount('todo', 1);
@@ -94,7 +95,7 @@ export default function TodosPage() {
       });
       setAllTodos((prev) => {
         const next = prev.map((t) => (t.id === todo.id ? { ...t, completed: !t.completed } : t));
-        cachedTodosByUser[user.id] = next;
+        window.appCache.todos[user.id] = next;
         return next;
       });
       updateStatCount('todoCompleted', todo.completed ? -1 : 1);
@@ -114,7 +115,7 @@ export default function TodosPage() {
       });
       setAllTodos((prev) => {
         const next = prev.map((t) => (t.id === id ? { ...t, title: editTitle.trim() } : t));
-        cachedTodosByUser[user.id] = next;
+        window.appCache.todos[user.id] = next;
         return next;
       });
       setEditingId(null);

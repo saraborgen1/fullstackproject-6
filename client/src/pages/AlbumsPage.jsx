@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { albumsAPI, photosAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const cachedAlbumsByUser = {};
+window.appCache = window.appCache || {};
+window.appCache.albums = window.appCache.albums || {};
 
 export default function AlbumsPage() {
   const { username } = useParams();
@@ -26,7 +27,7 @@ export default function AlbumsPage() {
   useEffect(() => {
     if (!user) return;
 
-    const userCache = cachedAlbumsByUser[user.id];
+    const userCache = window.appCache.albums[user.id];
 
     if (userCache) {
       setAllAlbums(userCache);
@@ -45,7 +46,7 @@ export default function AlbumsPage() {
       const data = await albumsAPI.getAll(user.id, {});
       const sorted = data.sort((a, b) => a.id - b.id);
       setAllAlbums(sorted);
-      cachedAlbumsByUser[user.id] = sorted;
+      window.appCache.albums[user.id] = sorted;
       loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load albums');
@@ -90,7 +91,7 @@ export default function AlbumsPage() {
       setNewTitle('');
       setAllAlbums((prev) => {
         const next = [...prev, createdAlbum].sort((a, b) => a.id - b.id);
-        cachedAlbumsByUser[user.id] = next;
+        window.appCache.albums[user.id] = next;
         return next;
       });
       updateStatCount('album', 1);
@@ -105,7 +106,7 @@ export default function AlbumsPage() {
       await albumsAPI.update(id, { userId: user.id, title: editTitle.trim() });
       setAllAlbums((prev) => {
         const next = prev.map((a) => (a.id === id ? { ...a, title: editTitle.trim() } : a));
-        cachedAlbumsByUser[user.id] = next;
+        window.appCache.albums[user.id] = next;
         return next;
       });
       setEditingId(null);
@@ -121,7 +122,7 @@ export default function AlbumsPage() {
       if (expandedAlbum === id) setExpandedAlbum(null);
       setAllAlbums((prev) => {
         const next = prev.filter((a) => a.id !== id);
-        cachedAlbumsByUser[user.id] = next;
+        window.appCache.albums[user.id] = next;
         return next;
       });
       updateStatCount('album', -1);

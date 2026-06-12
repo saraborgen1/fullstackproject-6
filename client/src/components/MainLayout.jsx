@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usersAPI } from '../services/api';
 
 export default function MainLayout() {
   const { user, logoutUser } = useAuth();
@@ -11,6 +12,18 @@ export default function MainLayout() {
   const handleLogout = () => {
     logoutUser();
     navigate('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Are you sure you want to delete your account?')) return;
+
+    try {
+      await usersAPI.delete(user.id);
+      logoutUser();
+      navigate('/login');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete account');
+    }
   };
 
   const isOwnProfile = user?.username === username;
@@ -74,6 +87,13 @@ export default function MainLayout() {
             </table>
             <button className="btn-primary" onClick={() => setShowInfo(false)}>
               Close
+            </button>
+            <button
+              className="btn-delete"
+              onClick={handleDeleteAccount}
+              style={{ width: '100%', marginTop: '10px' }}
+            >
+              Delete Account
             </button>
           </div>
         </div>
