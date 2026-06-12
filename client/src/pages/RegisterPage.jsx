@@ -38,6 +38,7 @@ export default function RegisterPage() {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <Link to="/" className="auth-back-link">← Back to Home</Link>
         <h1>Register</h1>
         {error && <div className="error-msg">{error}</div>}
         <form onSubmit={handleSubmit}>
