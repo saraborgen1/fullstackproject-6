@@ -47,6 +47,9 @@ export const postsAPI = {
     const query = { userId, ...params };
     return api.get('/posts', { params: query }).then((r) => r.data);
   },
+  getAllPosts: (params = {}) => {
+    return api.get('/posts', { params }).then((r) => r.data);
+  },
   create: (data) => api.post('/posts', data).then((r) => r.data),
   update: (id, data) => api.put(`/posts/${id}`, data).then((r) => r.data),
   patch: (id, data) => api.patch(`/posts/${id}`, data).then((r) => r.data),

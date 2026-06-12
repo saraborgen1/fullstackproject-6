@@ -3,21 +3,27 @@ const db = require("../db");
 const getPosts = (req, res) => {
   const { userId, search } = req.query;
 
-  if (!userId) {
-    return res.status(400).json({ message: "userId is required" });
-  }
-
   let sql = `
     SELECT id, user_id, title, body
     FROM posts
-    WHERE user_id = ?
   `;
 
-  const values = [userId];
+  const values = [];
+
+  const conditions = [];
+
+  if (userId) {
+    conditions.push("user_id = ?");
+    values.push(userId);
+  }
 
   if (search) {
-    sql += " AND (title LIKE ? OR body LIKE ?)";
+    conditions.push("(title LIKE ? OR body LIKE ?)");
     values.push(`%${search}%`, `%${search}%`);
+  }
+
+  if (conditions.length > 0) {
+    sql += " WHERE " + conditions.join(" AND ");
   }
 
   db.query(sql, values, (err, results) => {
