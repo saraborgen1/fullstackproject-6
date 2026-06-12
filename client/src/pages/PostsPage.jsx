@@ -9,16 +9,18 @@ export default function PostsPage() {
   const [allPosts, setAllPosts] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedPost, setExpandedPost] = useState(null);
+  const [selectedPostId, setSelectedPostId] = useState(null);
   const [comments, setComments] = useState({});
   const [commentsLoading, setCommentsLoading] = useState({});
-  const [newTitle, setNewTitle] = useState('');
-  const [newBody, setNewBody] = useState('');
-  const [editingId, setEditingId] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editBody, setEditBody] = useState('');
   const [search, setSearch] = useState('');
   const [showAllPosts, setShowAllPosts] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newBody, setNewBody] = useState('');
+  // Editing post in right panel
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
   // Comment editing
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentBody, setEditCommentBody] = useState('');
@@ -64,12 +66,14 @@ export default function PostsPage() {
     return result;
   }, [allPosts, showAllPosts, search, user.id]);
 
-  const toggleComments = async (postId) => {
-    if (expandedPost === postId) {
-      setExpandedPost(null);
-      return;
-    }
-    setExpandedPost(postId);
+  const selectedPost = useMemo(() => {
+    if (!selectedPostId) return null;
+    return allPosts.find((p) => p.id === selectedPostId) || null;
+  }, [allPosts, selectedPostId]);
+
+  const isOwnPost = (post) => post && post.user_id === user.id;
+
+  const loadComments = async (postId) => {
     if (!comments[postId]) {
       setCommentsLoading((prev) => ({ ...prev, [postId]: true }));
       try {
@@ -83,45 +87,62 @@ export default function PostsPage() {
     }
   };
 
+  const handleSelectPost = (postId) => {
+    setIsEditing(false);
+    setEditingCommentId(null);
+    setSelectedPostId(postId);
+    loadComments(postId);
+  };
+
+  const handleOpenAddModal = () => {
+    setNewTitle('');
+    setNewBody('');
+    setShowAddModal(true);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!newTitle.trim() || !newBody.trim()) return;
     try {
       const createdPost = await postsAPI.create({ userId: user.id, title: newTitle.trim(), body: newBody.trim() });
+      setShowAddModal(false);
       setNewTitle('');
       setNewBody('');
       setAllPosts((prev) => [...prev, createdPost].sort((a, b) => a.id - b.id));
+      setSelectedPostId(createdPost.id);
       updateStatCount('post', 1);
     } catch {
       setError('Failed to create post');
     }
   };
 
-  const handleEdit = (post) => {
-    setEditingId(post.id);
-    setEditTitle(post.title);
-    setEditBody(post.body);
+  const handleStartEdit = () => {
+    if (!selectedPost) return;
+    setIsEditing(true);
+    setEditTitle(selectedPost.title);
+    setEditBody(selectedPost.body);
   };
 
-  const handleUpdate = async (id) => {
-    if (!editTitle.trim() || !editBody.trim()) return;
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editTitle.trim() || !editBody.trim() || !selectedPost) return;
     try {
-      await postsAPI.update(id, { userId: user.id, title: editTitle.trim(), body: editBody.trim() });
+      await postsAPI.update(selectedPost.id, { userId: user.id, title: editTitle.trim(), body: editBody.trim() });
       setAllPosts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, title: editTitle.trim(), body: editBody.trim() } : p))
+        prev.map((p) => (p.id === selectedPost.id ? { ...p, title: editTitle.trim(), body: editBody.trim() } : p))
       );
-      setEditingId(null);
+      setIsEditing(false);
     } catch {
       setError('Failed to update post');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this post?')) return;
+  const handleDelete = async () => {
+    if (!selectedPost || !window.confirm('Delete this post?')) return;
     try {
-      await postsAPI.delete(id, user.id);
-      if (expandedPost === id) setExpandedPost(null);
-      setAllPosts((prev) => prev.filter((p) => p.id !== id));
+      await postsAPI.delete(selectedPost.id, user.id);
+      setAllPosts((prev) => prev.filter((p) => p.id !== selectedPost.id));
+      setSelectedPostId(null);
       updateStatCount('post', -1);
     } catch {
       setError('Failed to delete post');
@@ -182,34 +203,14 @@ export default function PostsPage() {
     }
   };
 
-  const isOwnPost = (post) => post.user_id === user.id;
-
   return (
     <div className="page-container">
       <h1>
         <Link to={`/users/${username}/dashboard`} className="back-link">
           ←
         </Link>{' '}
-        Posts by {username}
+        Posts
       </h1>
-
-      <form onSubmit={handleCreate} className="create-form">
-        <input
-          type="text"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="Post title..."
-          required
-        />
-        <textarea
-          value={newBody}
-          onChange={(e) => setNewBody(e.target.value)}
-          placeholder="Post body..."
-          required
-          rows={3}
-        />
-        <button type="submit" className="btn-primary">Add Post</button>
-      </form>
 
       <div className="filter-bar">
         <label>
@@ -223,130 +224,194 @@ export default function PostsPage() {
         </label>
         <button
           className={`btn-secondary ${showAllPosts ? '' : 'btn-active'}`}
-          onClick={() => setShowAllPosts(false)}
+          onClick={() => { setShowAllPosts(false); setSelectedPostId(null); setIsEditing(false); }}
         >
           My Posts
         </button>
         <button
           className={`btn-secondary ${showAllPosts ? 'btn-active' : ''}`}
-          onClick={() => setShowAllPosts(true)}
+          onClick={() => { setShowAllPosts(true); setSelectedPostId(null); setIsEditing(false); }}
         >
           All Posts
+        </button>
+        <button className="btn-primary" onClick={handleOpenAddModal}>
+          Add Post
         </button>
       </div>
 
       {error && <div className="error-msg">{error}</div>}
       {initialLoading && <div className="loading">Loading...</div>}
-      {!initialLoading && displayedPosts.length === 0 && <p className="empty-msg">No posts found.</p>}
 
       {!initialLoading && (
-        <ul className="item-list">
-          {displayedPosts.map((post) => (
-            <li key={post.id} className="item-card post-card">
-              {editingId === post.id ? (
-                <div className="edit-form">
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    autoFocus
-                  />
-                  <textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={3} />
-                  <div className="edit-actions">
-                    <button className="btn-save" onClick={() => handleUpdate(post.id)}>Save</button>
-                    <button className="btn-cancel" onClick={() => setEditingId(null)}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="post-content">
-                    <h3>{post.title}</h3>
-                    <p>{post.body}</p>
-                    {showAllPosts && isOwnPost(post) && <span className="own-badge">(yours)</span>}
-                  </div>
-                  <div className="item-actions">
-                    {isOwnPost(post) && (
-                      <>
-                        <button className="btn-edit" onClick={() => handleEdit(post)}>Edit</button>
-                        <button className="btn-delete" onClick={() => handleDelete(post.id)}>Delete</button>
-                      </>
-                    )}
-                    <button
-                      className="btn-secondary"
-                      onClick={() => toggleComments(post.id)}
-                    >
-                      {expandedPost === post.id ? 'Hide Comments' : 'Comments'}
-                    </button>
-                  </div>
-                </>
-              )}
+        <div className="posts-layout">
+          {/* Left sidebar - post list */}
+          <div className="posts-sidebar">
+            {displayedPosts.length === 0 && <p className="empty-msg">No posts found.</p>}
+            {displayedPosts.map((post) => (
+              <div
+                key={post.id}
+                className={`post-list-item ${selectedPostId === post.id ? 'selected' : ''}`}
+                onClick={() => handleSelectPost(post.id)}
+              >
+                <span className="post-list-id">#{post.id}</span>
+                <span className="post-list-title">{post.title}</span>
+                {showAllPosts && isOwnPost(post) && <span className="own-badge">(yours)</span>}
+              </div>
+            ))}
+          </div>
 
-              {expandedPost === post.id && (
-                <div className="comments-section">
-                  {commentsLoading[post.id] && <div className="loading">Loading comments...</div>}
-                  {comments[post.id] && (
-                    <>
-                      {comments[post.id].length === 0 && <p>No comments yet.</p>}
-                      <ul className="comment-list">
-                        {comments[post.id].map((c) => (
-                          <li key={c.id} className="comment-item">
-                            <strong>{c.name}</strong> ({c.email})
-                            {editingCommentId === c.id ? (
-                              <div className="edit-form inline">
-                                <textarea
-                                  value={editCommentBody}
-                                  onChange={(e) => setEditCommentBody(e.target.value)}
-                                  rows={2}
-                                  autoFocus
-                                />
-                                <button className="btn-save" onClick={() => handleEditComment(c.id, post.id)}>Save</button>
-                                <button className="btn-cancel" onClick={() => setEditingCommentId(null)}>Cancel</button>
-                              </div>
-                            ) : (
-                              <>
-                                <p>{c.body}</p>
-                                {c.user_id === user.id && (
-                                  <div className="item-actions small">
-                                    <button
-                                      className="btn-edit"
-                                      onClick={() => {
-                                        setEditingCommentId(c.id);
-                                        setEditCommentBody(c.body);
-                                      }}
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      className="btn-delete"
-                                      onClick={() => handleDeleteComment(c.id, post.id)}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="add-comment-form">
-                        <textarea
-                          value={newCommentText}
-                          onChange={(e) => setNewCommentText(e.target.value)}
-                          placeholder="Add a comment..."
-                          rows={2}
-                        />
-                        <button className="btn-primary" onClick={() => handleAddComment(post.id)}>
-                          Add Comment
-                        </button>
+          {/* Right panel - post details */}
+          <div className="posts-main">
+            {!selectedPost && (
+              <div className="no-post-selected">
+                Select a post from the list to view its details
+              </div>
+            )}
+
+            {selectedPost && (
+              <div className="post-detail-card">
+                {isEditing ? (
+                  <form onSubmit={handleUpdate}>
+                    <div className="form-group">
+                      <label>Title</label>
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Body</label>
+                      <textarea
+                        value={editBody}
+                        onChange={(e) => setEditBody(e.target.value)}
+                        required
+                        rows={5}
+                      />
+                    </div>
+                    <div className="post-detail-actions">
+                      <button type="submit" className="btn-save">Save</button>
+                      <button type="button" className="btn-cancel" onClick={() => setIsEditing(false)}>Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <h2>{selectedPost.title}</h2>
+                    <div className="post-body">{selectedPost.body}</div>
+                    {isOwnPost(selectedPost) && (
+                      <div className="post-detail-actions">
+                        <button className="btn-edit" onClick={handleStartEdit}>Edit</button>
+                        <button className="btn-delete" onClick={handleDelete}>Delete</button>
                       </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+                    )}
+
+                    {/* Comments section */}
+                    <div className="comments-section">
+                      {commentsLoading[selectedPost.id] && <div className="loading">Loading comments...</div>}
+                      {comments[selectedPost.id] && (
+                        <>
+                          <h3>Comments ({comments[selectedPost.id].length})</h3>
+                          {comments[selectedPost.id].length === 0 && <p>No comments yet.</p>}
+                          <ul className="comment-list">
+                            {comments[selectedPost.id].map((c) => (
+                              <li key={c.id} className="comment-item">
+                                <strong>{c.name}</strong> ({c.email})
+                                {editingCommentId === c.id ? (
+                                  <div className="edit-form inline">
+                                    <textarea
+                                      value={editCommentBody}
+                                      onChange={(e) => setEditCommentBody(e.target.value)}
+                                      rows={2}
+                                      autoFocus
+                                    />
+                                    <button className="btn-save" onClick={() => handleEditComment(c.id, selectedPost.id)}>Save</button>
+                                    <button className="btn-cancel" onClick={() => setEditingCommentId(null)}>Cancel</button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <p>{c.body}</p>
+                                    {c.user_id === user.id && (
+                                      <div className="item-actions small">
+                                        <button
+                                          className="btn-edit"
+                                          onClick={() => {
+                                            setEditingCommentId(c.id);
+                                            setEditCommentBody(c.body);
+                                          }}
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          className="btn-delete"
+                                          onClick={() => handleDeleteComment(c.id, selectedPost.id)}
+                                        >
+                                          Delete
+                                        </button>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="add-comment-form">
+                            <textarea
+                              value={newCommentText}
+                              onChange={(e) => setNewCommentText(e.target.value)}
+                              placeholder="Add a comment..."
+                              rows={2}
+                            />
+                            <button className="btn-primary" onClick={() => handleAddComment(selectedPost.id)}>
+                              Add Comment
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Floating modal for adding a new post */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>New Post</h2>
+            <form onSubmit={handleCreate}>
+              <div className="form-group">
+                <label>Title</label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  required
+                  placeholder="Post title..."
+                  autoFocus
+                />
+              </div>
+              <div className="form-group">
+                <label>Body</label>
+                <textarea
+                  value={newBody}
+                  onChange={(e) => setNewBody(e.target.value)}
+                  required
+                  placeholder="Post body..."
+                  rows={4}
+                />
+              </div>
+              <button type="submit" className="btn-primary">Save</button>
+              <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)} style={{ marginLeft: '0.5rem' }}>
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
