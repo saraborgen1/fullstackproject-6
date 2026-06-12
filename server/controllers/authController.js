@@ -23,7 +23,7 @@ const login = (req, res) => {
     }
 
     if (results[0].blocked) {
-      return res.status(403).json({ message: "User is blocked" });
+      return res.status(403).json({ message: "You are blocked by an administrator!" });
     }
 
     res.json(results[0]);
