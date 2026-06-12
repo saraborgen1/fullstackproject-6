@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { postsAPI, commentsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-let cachedPosts = null;
+const cachedPostsByUser = {};
 
 export default function PostsPage() {
   const { username } = useParams();
@@ -31,16 +31,19 @@ export default function PostsPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (cachedPosts) {
-      setAllPosts(cachedPosts);
+
+    const userCache = cachedPostsByUser[user.id];
+
+    if (userCache) {
+      setAllPosts(userCache);
       setInitialLoading(false);
       return;
     }
-    if (!loadedRef.current) {
-      fetchAllPosts();
-    }
+
+    fetchAllPosts();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user?.id]);
 
   const fetchAllPosts = async () => {
     setInitialLoading(true);
@@ -49,7 +52,7 @@ export default function PostsPage() {
       const data = await postsAPI.getAllPosts({});
       const sorted = data.sort((a, b) => a.id - b.id);
       setAllPosts(sorted);
-      cachedPosts = sorted;
+      cachedPostsByUser[user.id] = sorted;
       loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load posts');
@@ -119,7 +122,7 @@ export default function PostsPage() {
       setNewBody('');
       setAllPosts((prev) => {
         const next = [...prev, createdPost].sort((a, b) => a.id - b.id);
-        cachedPosts = next;
+        cachedPostsByUser[user.id] = next;
         return next;
       });
       setSelectedPostId(createdPost.id);
@@ -143,7 +146,7 @@ export default function PostsPage() {
       await postsAPI.update(selectedPost.id, { userId: user.id, title: editTitle.trim(), body: editBody.trim() });
       setAllPosts((prev) => {
         const next = prev.map((p) => (p.id === selectedPost.id ? { ...p, title: editTitle.trim(), body: editBody.trim() } : p));
-        cachedPosts = next;
+        cachedPostsByUser[user.id] = next;
         return next;
       });
       setIsEditing(false);
@@ -158,7 +161,7 @@ export default function PostsPage() {
       await postsAPI.delete(selectedPost.id, user.id);
       setAllPosts((prev) => {
         const next = prev.filter((p) => p.id !== selectedPost.id);
-        cachedPosts = next;
+        cachedPostsByUser[user.id] = next;
         return next;
       });
       setSelectedPostId(null);

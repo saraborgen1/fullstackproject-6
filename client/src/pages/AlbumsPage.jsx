@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { albumsAPI, photosAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-let cachedAlbums = null;
+const cachedAlbumsByUser = {};
 
 export default function AlbumsPage() {
   const { username } = useParams();
@@ -25,16 +25,18 @@ export default function AlbumsPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (cachedAlbums) {
-      setAllAlbums(cachedAlbums);
+
+    const userCache = cachedAlbumsByUser[user.id];
+
+    if (userCache) {
+      setAllAlbums(userCache);
       setInitialLoading(false);
       return;
     }
-    if (!loadedRef.current) {
-      fetchAllAlbums();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+
+    fetchAllAlbums();
+
+  }, [user?.id]);
 
   const fetchAllAlbums = async () => {
     setInitialLoading(true);
@@ -43,7 +45,7 @@ export default function AlbumsPage() {
       const data = await albumsAPI.getAll(user.id, {});
       const sorted = data.sort((a, b) => a.id - b.id);
       setAllAlbums(sorted);
-      cachedAlbums = sorted;
+      cachedAlbumsByUser[user.id] = sorted;
       loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load albums');
@@ -91,7 +93,7 @@ export default function AlbumsPage() {
       setNewTitle('');
       setAllAlbums((prev) => {
         const next = [...prev, createdAlbum].sort((a, b) => a.id - b.id);
-        cachedAlbums = next;
+        cachedAlbumsByUser[user.id] = next;
         return next;
       });
       updateStatCount('album', 1);
@@ -108,7 +110,7 @@ export default function AlbumsPage() {
       await albumsAPI.update(id, { userId: user.id, title: editTitle.trim() });
       setAllAlbums((prev) => {
         const next = prev.map((a) => (a.id === id ? { ...a, title: editTitle.trim() } : a));
-        cachedAlbums = next;
+        cachedAlbumsByUser[user.id] = next;
         return next;
       });
       setEditingId(null);
@@ -124,7 +126,7 @@ export default function AlbumsPage() {
       if (selectedAlbumId === id) setSelectedAlbumId(null);
       setAllAlbums((prev) => {
         const next = prev.filter((a) => a.id !== id);
-        cachedAlbums = next;
+        cachedAlbumsByUser[user.id] = next;
         return next;
       });
       updateStatCount('album', -1);

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { todosAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-let cachedTodos = null;
+const cachedTodosByUser = {};
 
 export default function TodosPage() {
   const { username } = useParams();
@@ -21,16 +21,18 @@ export default function TodosPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (cachedTodos) {
-      setAllTodos(cachedTodos);
+
+    const userCache = cachedTodosByUser[user.id];
+
+    if (userCache) {
+      setAllTodos(userCache);
       setInitialLoading(false);
       return;
     }
-    if (!loadedRef.current) {
-      fetchAllTodos();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+
+    fetchAllTodos();
+
+  }, [user?.id]);
 
   const fetchAllTodos = async () => {
     setInitialLoading(true);
@@ -39,7 +41,7 @@ export default function TodosPage() {
       const data = await todosAPI.getAll(user.id, {});
       const sorted = data.sort((a, b) => a.id - b.id);
       setAllTodos(sorted);
-      cachedTodos = sorted;
+      cachedTodosByUser[user.id] = sorted; 
       loadedRef.current = true;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load todos');
@@ -74,7 +76,7 @@ export default function TodosPage() {
       setNewTitle('');
       setAllTodos((prev) => {
         const next = [...prev, createdTodo].sort((a, b) => a.id - b.id);
-        cachedTodos = next;
+        cachedTodosByUser[user.id] = next;
         return next;
       });
       updateStatCount('todo', 1);
@@ -92,7 +94,7 @@ export default function TodosPage() {
       });
       setAllTodos((prev) => {
         const next = prev.map((t) => (t.id === todo.id ? { ...t, completed: !t.completed } : t));
-        cachedTodos = next;
+        cachedTodosByUser[user.id] = next;
         return next;
       });
       updateStatCount('todoCompleted', todo.completed ? -1 : 1);
@@ -112,7 +114,7 @@ export default function TodosPage() {
       });
       setAllTodos((prev) => {
         const next = prev.map((t) => (t.id === id ? { ...t, title: editTitle.trim() } : t));
-        cachedTodos = next;
+        cachedTodosByUser[user.id] = next;
         return next;
       });
       setEditingId(null);
@@ -129,7 +131,7 @@ export default function TodosPage() {
       await todosAPI.delete(id, user.id);
       setAllTodos((prev) => {
         const next = prev.filter((t) => t.id !== id);
-        cachedTodos = next;
+        cachedTodosByUser[user.id] = next;
         return next;
       });
       updateStatCount('todo', -1);
