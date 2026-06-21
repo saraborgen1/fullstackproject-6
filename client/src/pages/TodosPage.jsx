@@ -132,7 +132,7 @@ export default function TodosPage() {
       await todosAPI.delete(id, user.id);
       setAllTodos((prev) => {
         const next = prev.filter((t) => t.id !== id);
-        cachedTodosByUser[user.id] = next;
+        window.appCache.todos[user.id] = next;
         return next;
       });
       updateStatCount('todo', -1);
