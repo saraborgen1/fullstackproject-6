@@ -179,7 +179,6 @@ export default function AdminPage() {
             ))}
           </div>
 
-
           {/* Section Content */}
           {activeSection === 'overview' && stats && (
             <div className="admin-section">

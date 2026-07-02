@@ -88,13 +88,15 @@ export default function MainLayout() {
             <button className="btn-primary" onClick={() => setShowInfo(false)}>
               Close
             </button>
-            <button
-              className="btn-delete"
-              onClick={handleDeleteAccount}
-              style={{ width: '100%', marginTop: '10px' }}
-            >
-              Delete Account
-            </button>
+            {!user?.is_admin && (
+              <button
+                className="btn-delete"
+                onClick={handleDeleteAccount}
+                style={{ width: '100%', marginTop: '10px' }}
+              >
+                Delete Account
+              </button>
+            )}
           </div>
         </div>
       )}

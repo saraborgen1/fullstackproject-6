@@ -16,7 +16,7 @@ export default function TodosPage() {
   const [newTitle, setNewTitle] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
-  const [filter, setFilter] = useState('all'); // all, completed, pending
+  const [filter, setFilter] = useState('all'); 
   const [search, setSearch] = useState('');
   const loadedRef = useRef(false);
 
@@ -132,7 +132,7 @@ export default function TodosPage() {
       await todosAPI.delete(id, user.id);
       setAllTodos((prev) => {
         const next = prev.filter((t) => t.id !== id);
-        cachedTodosByUser[user.id] = next;
+        window.appCache.todos[user.id] = next;
         return next;
       });
       updateStatCount('todo', -1);

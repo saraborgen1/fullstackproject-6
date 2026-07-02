@@ -5,6 +5,10 @@ import { useAuth } from '../context/AuthContext';
 
 window.appCache = window.appCache || {};
 window.appCache.albums = window.appCache.albums || {};
+
+window.appCache = window.appCache || {};
+window.appCache.albumPhotos = window.appCache.albumPhotos || {};
+
 const PHOTOS_PER_PAGE = 6;
 
 export default function AlbumsPage() {
@@ -18,19 +22,15 @@ export default function AlbumsPage() {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [search, setSearch] = useState('');
-  // Photo new
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
   const [newPhotoTitle, setNewPhotoTitle] = useState('');
   const loadedRef = useRef(false);
+  const [albumPhotos, setAlbumPhotos] = useState({});
+  const [albumTotal, setAlbumTotal] = useState({});
+  const [albumPage, setAlbumPage] = useState({});
+  const [albumLoading, setAlbumLoading] = useState({});
+  const [albumLoadingMore, setAlbumLoadingMore] = useState({});
 
-  // Server-side pagination state per album
-  const [albumPhotos, setAlbumPhotos] = useState({});       // { albumId: [photo, ...] }
-  const [albumTotal, setAlbumTotal] = useState({});          // { albumId: totalCount }
-  const [albumPage, setAlbumPage] = useState({});            // { albumId: currentPage (1-based) }
-  const [albumLoading, setAlbumLoading] = useState({});      // { albumId: bool }
-  const [albumLoadingMore, setAlbumLoadingMore] = useState({}); // { albumId: bool }
-
-  // Lightbox state
   const [lightbox, setLightbox] = useState({ open: false, photoIndex: 0 });
 
   useEffect(() => {
@@ -78,24 +78,49 @@ export default function AlbumsPage() {
     return allAlbums.find((a) => a.id === selectedAlbumId) || null;
   }, [allAlbums, selectedAlbumId]);
 
-  // Current loaded photos and totals for the selected album
   const currentPhotos = selectedAlbumId ? (albumPhotos[selectedAlbumId] || []) : [];
   const currentTotal = selectedAlbumId ? (albumTotal[selectedAlbumId] || 0) : 0;
   const currentPage = selectedAlbumId ? (albumPage[selectedAlbumId] || 1) : 1;
   const hasMore = currentPhotos.length < currentTotal;
   const isLoadingMore = selectedAlbumId ? !!albumLoadingMore[selectedAlbumId] : false;
 
-  // Fetch first page of photos for an album
   const handleSelectAlbum = useCallback(async (albumId) => {
     setEditingId(null);
     setSelectedAlbumId(albumId);
 
-    // If we already have photos loaded for this album, don't re-fetch
+    window.appCache = window.appCache || {};
+    window.appCache.albumPhotos = window.appCache.albumPhotos || {};
+    const cache = window.appCache.albumPhotos[albumId];
+
+    if (cache) {
+      setAlbumPhotos((prev) => ({
+        ...prev,
+        [albumId]: cache.photos,
+      }));
+      setAlbumTotal((prev) => ({
+        ...prev,
+        [albumId]: cache.total,
+      }));
+      setAlbumPage((prev) => ({
+        ...prev,
+        [albumId]: cache.page,
+      }));
+      return;
+    }
+
     if (albumPhotos[albumId]) return;
 
     setAlbumLoading((prev) => ({ ...prev, [albumId]: true }));
+
     try {
       const data = await photosAPI.getPaginated(albumId, 1, PHOTOS_PER_PAGE);
+
+      window.appCache.albumPhotos[albumId] = {
+        photos: data.photos,
+        total: data.total,
+        page: 1,
+      };
+
       setAlbumPhotos((prev) => ({ ...prev, [albumId]: data.photos }));
       setAlbumTotal((prev) => ({ ...prev, [albumId]: data.total }));
       setAlbumPage((prev) => ({ ...prev, [albumId]: 1 }));
@@ -106,7 +131,6 @@ export default function AlbumsPage() {
     }
   }, [albumPhotos]);
 
-  // Fetch next page from server
   const handleLoadMore = useCallback(async () => {
     if (!selectedAlbumId || !hasMore || isLoadingMore) return;
     const nextPage = currentPage + 1;
@@ -114,11 +138,23 @@ export default function AlbumsPage() {
     setAlbumLoadingMore((prev) => ({ ...prev, [selectedAlbumId]: true }));
     try {
       const data = await photosAPI.getPaginated(selectedAlbumId, nextPage, PHOTOS_PER_PAGE);
-      setAlbumPhotos((prev) => ({
+      setAlbumPhotos((prev) => {
+        const updatedPhotos = [...(prev[selectedAlbumId] || []), ...data.photos];
+
+        window.appCache.albumPhotos[selectedAlbumId] = {
+          photos: updatedPhotos,
+          total: albumTotal[selectedAlbumId],
+          page: nextPage,
+        };
+        return {
+          ...prev,
+          [selectedAlbumId]: updatedPhotos,
+        };
+      });
+      setAlbumPage((prev) => ({
         ...prev,
-        [selectedAlbumId]: [...(prev[selectedAlbumId] || []), ...data.photos],
+        [selectedAlbumId]: nextPage,
       }));
-      setAlbumPage((prev) => ({ ...prev, [selectedAlbumId]: nextPage }));
     } catch {
       setError('Failed to load more photos');
     } finally {
@@ -126,13 +162,11 @@ export default function AlbumsPage() {
     }
   }, [selectedAlbumId, currentPage, hasMore, isLoadingMore]);
 
-  // Load all remaining photos from server
   const handleShowAll = useCallback(async () => {
     if (!selectedAlbumId || !hasMore || isLoadingMore) return;
 
     setAlbumLoadingMore((prev) => ({ ...prev, [selectedAlbumId]: true }));
     try {
-      // Fetch all remaining pages
       const total = albumTotal[selectedAlbumId];
       const allLoaded = albumPhotos[selectedAlbumId] || [];
       const nextPage = currentPage + 1;
@@ -145,11 +179,23 @@ export default function AlbumsPage() {
       const results = await Promise.all(fetchPromises);
       const allRemaining = results.flatMap((r) => r.photos);
 
+      const updatedPhotos = [...allLoaded, ...allRemaining];
+
+      window.appCache.albumPhotos[selectedAlbumId] = {
+        photos: updatedPhotos,
+        total,
+        page: lastPage,
+      };
+
       setAlbumPhotos((prev) => ({
         ...prev,
-        [selectedAlbumId]: [...allLoaded, ...allRemaining],
+        [selectedAlbumId]: updatedPhotos,
       }));
-      setAlbumPage((prev) => ({ ...prev, [selectedAlbumId]: lastPage }));
+
+      setAlbumPage((prev) => ({
+        ...prev,
+        [selectedAlbumId]: lastPage,
+      }));
     } catch {
       setError('Failed to load all photos');
     } finally {
@@ -157,7 +203,6 @@ export default function AlbumsPage() {
     }
   }, [selectedAlbumId, currentPage, hasMore, isLoadingMore, albumTotal, albumPhotos]);
 
-  // Lightbox navigation
   const openLightbox = useCallback((index) => {
     setLightbox({ open: true, photoIndex: index });
   }, []);
@@ -180,7 +225,6 @@ export default function AlbumsPage() {
     }));
   }, []);
 
-  // Keyboard navigation for lightbox
   useEffect(() => {
     if (!lightbox.open) return;
     const handleKey = (e) => {
@@ -204,7 +248,6 @@ export default function AlbumsPage() {
         return next;
       });
       updateStatCount('album', 1);
-      // Auto-select the newly created album
       setSelectedAlbumId(createdAlbum.id);
     } catch {
       setError('Failed to create album');
@@ -258,6 +301,11 @@ export default function AlbumsPage() {
         ...prev,
         [albumId]: [createdPhoto, ...(prev[albumId] || [])],
       }));
+      window.appCache.albumPhotos[albumId] = {
+        photos: [createdPhoto, ...(albumPhotos[albumId] || [])],
+        total: (albumTotal[albumId] || 0) + 1,
+        page: albumPage[albumId] || 1,
+      };
       setAlbumTotal((prev) => ({ ...prev, [albumId]: (prev[albumId] || 0) + 1 }));
     } catch {
       setError('Failed to add photo');
@@ -272,13 +320,17 @@ export default function AlbumsPage() {
         ...prev,
         [albumId]: prev[albumId].filter((p) => p.id !== photoId),
       }));
+      window.appCache.albumPhotos[albumId] = {
+        photos: albumPhotos[albumId].filter((p) => p.id !== photoId),
+        total: Math.max(0, (albumTotal[albumId] || 1) - 1),
+        page: albumPage[albumId] || 1,
+      };
       setAlbumTotal((prev) => ({ ...prev, [albumId]: Math.max(0, (prev[albumId] || 1) - 1) }));
     } catch {
       setError('Failed to delete photo');
     }
   };
 
-  // Calculate progress percentage
   const progressPercent = currentTotal > 0 ? Math.min(100, Math.round((currentPhotos.length / currentTotal) * 100)) : 0;
 
   return (
@@ -506,7 +558,7 @@ export default function AlbumsPage() {
         <div className="lightbox-overlay" onClick={closeLightbox}>
           <div className="lightbox-container" onClick={(e) => e.stopPropagation()}>
             <button className="lightbox-close" onClick={closeLightbox}>✕</button>
-            
+
             <div className="lightbox-content">
               <button
                 className="lightbox-nav lightbox-prev"
